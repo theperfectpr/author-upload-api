@@ -6,6 +6,8 @@ import userRouter from './user/userRouter';
 
 const app = express();
 
+app.use(express.json());
+
 app.get('/', (req, res) => {
     // const error = createHttpError(404, 'Something went wrong');
     // throw error;
