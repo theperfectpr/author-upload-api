@@ -62,5 +62,9 @@ const createUser = async (req: Request,res: Response,next: NextFunction) =>{
     res.json({accessToken: token});
 }
 
+const loginUser = async (req: Request,res: Response,next: NextFunction) =>{
+    res.status(201).json({message:'ok'});
+}
+
 //module export
-export {createUser};
+export {createUser,loginUser};
