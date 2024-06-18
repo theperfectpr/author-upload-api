@@ -63,7 +63,48 @@ const createUser = async (req: Request,res: Response,next: NextFunction) =>{
 }
 
 const loginUser = async (req: Request,res: Response,next: NextFunction) =>{
-    res.status(201).json({message:'ok'});
+
+    const {email, password} = req.body;
+
+    if(!email || !password){
+        const error = createHttpError(400, "Fields are required");
+        return next(error);
+    }
+    let user;
+    try{
+        user = await userModel.findOne({email});
+        if(!user){
+            const error = createHttpError(401, "User not found");
+            return next(error);
+        }
+    }
+    catch(err){
+        const error = createHttpError(500, "Database error while logging in");
+        return next(error);
+    }
+
+    
+    const isMatched = await bcrypt.compare(password, user.password);
+    try{
+        if(!isMatched){
+            const error = createHttpError(401, "Invalid password");
+            return next(error);
+        }
+    }
+    catch(err){
+        const error = createHttpError(500, "Error while comparing password");
+        return next(error);
+    }
+    let token;
+    try{
+        token = sign({sub: user._id}, config.jwtSecret as string,{expiresIn: "1d"});
+    }
+    catch(err){
+        const error = createHttpError(500, "Error while generating token");
+        return next(error);
+    }
+
+    res.status(201).json({accessToken: token});
 }
 
 //module export
