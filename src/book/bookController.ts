@@ -96,7 +96,7 @@ const updateBook = async(req: Request,res: Response,next: NextFunction) =>{
             completeFileName = filename
             const uploadResult = await cloudinary.uploader.upload(filePath,{
                 filename_override: completeFileName,
-                folder: 'book-covers',
+                folder: 'book-pdfs',
                 resource_type:'raw',
                 format: 'pdf'
             });
@@ -158,4 +158,52 @@ const getSingleBook = async(req: Request,res: Response,next: NextFunction) =>{
     }
 }
 
-export {createBook, updateBook, listBooks, getSingleBook};
+const deleteBook = async(req: Request,res: Response,next: NextFunction) =>{
+    const bookId = req.params.bookId;
+    try{
+        const book = await bookModel.findOne({_id: bookId});
+
+        const _req = req as AuthRequest;
+        if(book?.author.toString() !== _req.userId){
+            const error = createHttpError(403, 'You are not the authorized to update this book');   
+            return next(error);
+        }
+        if(!book){
+            const error= createHttpError(404, 'Book not found');
+            return next(error);
+        }
+        try{
+            const coverFileSplits = book.coverImage.split('/');
+            const coverImagePublicId = coverFileSplits.at(-2) + '/' + (coverFileSplits.at(-1)?.split('.')[0]);
+            await cloudinary.uploader.destroy(coverImagePublicId);
+        }
+        catch(err){
+            console.log(err);
+            const error= createHttpError(500, 'Error deleting cover image');
+            return next(error);
+        }
+
+        try{
+            const bookFileSplits = book.file.split('/');
+            const bookFilePublicId = bookFileSplits.at(-2)+'/'+bookFileSplits.at(-1);
+            await cloudinary.uploader.destroy(bookFilePublicId,{
+                resource_type: 'raw'
+            });
+        }
+        catch(err){
+            console.log(err);
+            const error= createHttpError(500, 'Error deleting book file');
+            return next(error);
+        }
+
+        await bookModel.deleteOne({_id: bookId});
+        res.sendStatus(204);
+    }
+    catch(err){
+        console.log(err);
+        const error= createHttpError(500, 'Error deleting book with given id');
+        return next(error);
+    }
+}
+
+export {createBook, updateBook, listBooks, getSingleBook, deleteBook};
