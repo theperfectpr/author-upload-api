@@ -59,4 +59,74 @@ const createBook = async(req: Request,res: Response,next: NextFunction) =>{
     }  
 }
 
-export {createBook};
+const updateBook = async(req: Request,res: Response,next: NextFunction) =>{
+    const {title, genre} = req.body;
+    const bookId = req.params.bookId;
+    try{
+        const book = await bookModel.findOne({_id: bookId});
+        if(!book){
+            const error= createHttpError(404, 'Book not found');
+            return next(error);
+        }
+        const _req = req as AuthRequest;
+        if(book?.author.toString() !== _req.userId){
+            const error = createHttpError(403, 'You are not the authorized to update this book');   
+            return next(error);
+        }
+        const files = req.files as {[fieldname: string]: Express.Multer.File[]};
+        let completeCoverImage = "";
+        if(files.coverImage){
+            const filename = files.coverImage[0].filename;
+            const coverImageMimeType = files.coverImage[0].mimetype.split('/').at(-1);
+            const filePath = path.resolve(__dirname, '../../public/data/uploads', filename);
+            completeCoverImage = filename
+            const uploadResult = await cloudinary.uploader.upload(filePath,{
+                filename_override: completeCoverImage,
+                folder: 'book-covers',
+                format: coverImageMimeType
+            });
+            completeCoverImage = uploadResult.secure_url;
+            await fs.promises.unlink(filePath);
+        }
+
+        let completeFileName = "";
+        if(files.file){
+            const filename = files.file[0].filename;
+            const filePath = path.resolve(__dirname, '../../public/data/uploads', filename);
+            completeFileName = filename
+            const uploadResult = await cloudinary.uploader.upload(filePath,{
+                filename_override: completeFileName,
+                folder: 'book-covers',
+                resource_type:'raw',
+                format: 'pdf'
+            });
+            completeFileName = uploadResult.secure_url;
+            await fs.promises.unlink(filePath);
+        }
+
+        try{
+            const updatedBook = await bookModel.findOneAndUpdate({_id: bookId}, 
+                {
+                    title,
+                    genre,
+                    coverImage: completeCoverImage || book.coverImage,
+                    file: completeFileName || book.file
+                },
+                {new: true}
+            )
+            res.status(201).json(updatedBook);
+        }
+        catch(err){
+            console.log(err);
+            const error= createHttpError(500, 'Error updating book');
+            return next(error);
+        }
+    }
+    catch(err){
+        console.log(err);
+        const error= createHttpError(500, 'Error updating book');
+        return next(error);
+    }
+}
+
+export {createBook, updateBook};
