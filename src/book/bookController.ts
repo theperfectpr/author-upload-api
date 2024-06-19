@@ -87,6 +87,17 @@ const updateBook = async(req: Request,res: Response,next: NextFunction) =>{
             });
             completeCoverImage = uploadResult.secure_url;
             await fs.promises.unlink(filePath);
+            //delete previous cover image
+            try{
+                const coverFileSplits = book.coverImage.split('/');
+                const coverImagePublicId = coverFileSplits.at(-2) + '/' + (coverFileSplits.at(-1)?.split('.')[0]);
+                await cloudinary.uploader.destroy(coverImagePublicId);
+            }
+            catch(err){
+                console.log(err);
+                const error= createHttpError(500, 'Error deleting cover image on update');
+                return next(error);
+            }
         }
 
         let completeFileName = "";
@@ -102,6 +113,19 @@ const updateBook = async(req: Request,res: Response,next: NextFunction) =>{
             });
             completeFileName = uploadResult.secure_url;
             await fs.promises.unlink(filePath);
+            //delet previous file
+            try{
+                const bookFileSplits = book.file.split('/');
+                const bookFilePublicId = bookFileSplits.at(-2)+'/'+bookFileSplits.at(-1);
+                await cloudinary.uploader.destroy(bookFilePublicId,{
+                    resource_type: 'raw'
+                });
+            }
+            catch(err){
+                console.log(err);
+                const error= createHttpError(500, 'Error deleting file on update');
+                return next(error);
+            }
         }
 
         try{
